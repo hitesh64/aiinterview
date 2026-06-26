@@ -80,142 +80,127 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- Embedded Secure Server for VAPI & MongoDB Webhook ---
-@st.cache_resource
-def start_local_server():
-    class RequestHandler(http.server.SimpleHTTPRequestHandler):
-        def do_GET(self):
-            from urllib.parse import urlparse, parse_qs
-            parsed_url = urlparse(self.path)
-            if parsed_url.path == '/interview':
-                query_params = parse_qs(parsed_url.query)
-                candidate_name = query_params.get('name', ['Unknown Candidate'])[0]
+import streamlit.components.v1 as components
+import os
+
+# --- Dynamically Create Custom Component (Single File Approach) ---
+# This automatically generates the required HTML file at runtime so you don't need a separate index.html file!
+COMPONENT_DIR = os.path.join(os.path.dirname(__file__), ".vapi_component")
+os.makedirs(COMPONENT_DIR, exist_ok=True)
+
+vapi_html = """<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <script src="https://cdn.jsdelivr.net/gh/VapiAI/html-script-tag@latest/dist/assets/index.js"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #ffffff; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; overflow: hidden; }
+        .container { text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; }
+        
+        /* Premium Pulsing Animation */
+        .pulse-ring {
+            width: 70px; height: 70px; background: #3b82f6; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.5);
+            animation: pulse 2.5s infinite;
+            margin-bottom: 25px;
+            color: white; font-size: 24px; font-weight: bold; font-family: 'Inter', sans-serif;
+        }
+        @keyframes pulse {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 20px rgba(59, 130, 246, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+        }
+        
+        h2 { color: #0f172a; margin-bottom: 10px; font-size: 1.6rem; font-weight: 800; letter-spacing: -0.5px; }
+        p { color: #64748b; font-size: 1.05rem; max-width: 320px; line-height: 1.6; font-weight: 500; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="pulse-ring">AI</div>
+        <h2>Your AI Interviewer is Ready</h2>
+        <p id="welcome-text">Welcome! I am ready to begin our conversation. Please ensure you are in a quiet environment, then click the phone icon in the bottom right corner to start.</p>
+    </div>
+    
+    <script>
+        function sendMessageToStreamlit(data) {
+            window.parent.postMessage({
+                isStreamlitMessage: true,
+                type: "streamlit:setComponentValue",
+                value: data
+            }, "*");
+        }
+
+        function onRender(event) {
+            const data = event.data;
+            if (data.type === "streamlit:render") {
+                const candidateName = data.args.name || "Candidate";
+                document.getElementById('welcome-text').innerText = `Welcome, ${candidateName}! I am ready to begin our conversation. Please ensure you are in a quiet environment, then click the phone icon in the bottom right corner to start.`;
+
+                window.parent.postMessage({
+                    isStreamlitMessage: true,
+                    type: "streamlit:setFrameHeight",
+                    height: 450
+                }, "*");
                 
-                self.send_response(200)
-                self.send_header('Content-type', 'text/html; charset=utf-8')
-                self.end_headers()
-                # CLEAN, MODERN, ANIMATED VAPI UI
-                vapi_html = """
-                <!DOCTYPE html>
-                <html>
-                <head>
-                    <meta charset="UTF-8">
-                    <script src="https://cdn.jsdelivr.net/gh/VapiAI/html-script-tag@latest/dist/assets/index.js"></script>
-                    <style>
-                        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; overflow: hidden; }
-                        .container { text-align: center; display: flex; flex-direction: column; align-items: center; }
-                        
-                        /* Premium Pulsing Animation */
-                        .pulse-ring {
-                            width: 70px; height: 70px; background: #3b82f6; border-radius: 50%;
-                            display: flex; align-items: center; justify-content: center;
-                            box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.5);
-                            animation: pulse 2.5s infinite;
-                            margin-bottom: 25px;
-                            color: white; font-size: 24px; font-weight: bold; font-family: 'Inter', sans-serif;
-                        }
-                        @keyframes pulse {
-                            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); }
-                            70% { transform: scale(1); box-shadow: 0 0 0 20px rgba(59, 130, 246, 0); }
-                            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
-                        }
-                        
-                        h2 { color: #0f172a; margin-bottom: 10px; font-size: 1.6rem; font-weight: 800; letter-spacing: -0.5px; }
-                        p { color: #64748b; font-size: 1.05rem; max-width: 320px; line-height: 1.6; font-weight: 500; }
-                    </style>
-                </head>
-                <body>
-                    <div class="container">
-                        <div class="pulse-ring">AI</div>
-                        <h2>Your AI Interviewer is Ready</h2>
-                        <p>Welcome, __CANDIDATE_NAME__! I am ready to begin our conversation. Please ensure you are in a quiet environment, then click the phone icon in the bottom right corner to start.</p>
-                    </div>
-                    <script>
-                        window.onload = function() {
-                            if (window.vapiSDK) {
-                                const vapiInstance = window.vapiSDK.run({
-                                    apiKey: "635c8d91-9f2d-4de6-bb4f-67c1f493fa0d",
-                                    assistant: "793df902-6bd1-4f7f-b4a8-f9737b211180",
-                                    config: {}
-                                });
+                if (!window.vapiInitialized) {
+                    window.vapiInitialized = true;
+                    if (window.vapiSDK) {
+                        const vapiInstance = window.vapiSDK.run({
+                            apiKey: "635c8d91-9f2d-4de6-bb4f-67c1f493fa0d",
+                            assistant: "793df902-6bd1-4f7f-b4a8-f9737b211180",
+                            config: {}
+                        });
 
-                                let liveTranscript = "";
+                        let liveTranscript = "";
 
-                                // Capture real-time conversation
-                                vapiInstance.on('message', (message) => {
-                                    if (message.type === 'transcript' && message.transcriptType === 'final') {
-                                        let speaker = message.role === 'user' ? '__CANDIDATE_NAME__' : 'AI';
-                                        liveTranscript += speaker + ": " + message.transcript + "\\n";
-                                    }
-                                });
-
-                                // Call Ended -> Save Transcript
-                                vapiInstance.on('call-end', () => {
-                                    let finalStatus = liveTranscript.trim() === "" ? "Call Cut (No Audio)" : "Completed Interview";
-                                    
-                                    fetch('/save', {
-                                        method: 'POST',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({
-                                            name: "__CANDIDATE_NAME__",
-                                            status: finalStatus,
-                                            transcript: liveTranscript || "Candidate hung up before speaking.",
-                                            summary: "Check Vapi Dashboard for AI Summary.",
-                                            is_name_verified: true,
-                                            timestamp: new Date().toLocaleString()
-                                        })
-                                    });
-                                    // Reset transcript for the next call
-                                    liveTranscript = ""; 
-                                });
+                        vapiInstance.on('message', (message) => {
+                            if (message.type === 'transcript' && message.transcriptType === 'final') {
+                                let speaker = message.role === 'user' ? candidateName : 'AI';
+                                liveTranscript += speaker + ": " + message.transcript + "\\n";
                             }
-                        };
-                    </script>
-                </body>
-                </html>
-                """.replace("__CANDIDATE_NAME__", candidate_name)
-                self.wfile.write(vapi_html.encode('utf-8'))
-            else:
-                self.send_response(404)
-                self.end_headers()
+                        });
 
-        def do_POST(self):
-            if self.path == '/save':
-                content_length = int(self.headers['Content-Length'])
-                post_data = self.rfile.read(content_length)
-                try:
-                    import json
-                    from pymongo import MongoClient
-                    data = json.loads(post_data.decode('utf-8'))
-                    
-                    client = MongoClient("mongodb+srv://kunal:KdVygwFo0Anau8uX@hitesh.cqczgkd.mongodb.net/")
-                    db = client["AI_Interviews"]
-                    collection = db["candidates"]
-                    collection.insert_one(data)
-                    
-                    self.send_response(200)
-                    self.end_headers()
-                    self.wfile.write(b"Saved to DB")
-                except Exception as e:
-                    self.send_response(500)
-                    self.end_headers()
-                    self.wfile.write(str(e).encode('utf-8'))
-            else:
-                self.send_response(404)
-                self.end_headers()
+                        vapiInstance.on('call-end', () => {
+                            let finalStatus = liveTranscript.trim() === "" ? "Call Cut (No Audio)" : "Completed Interview";
+                            
+                            sendMessageToStreamlit({
+                                name: candidateName,
+                                status: finalStatus,
+                                transcript: liveTranscript || "Candidate hung up before speaking.",
+                                summary: "Check Vapi Dashboard for AI Summary.",
+                                is_name_verified: true,
+                                timestamp: new Date().toLocaleString()
+                            });
+                            
+                            liveTranscript = ""; 
+                        });
+                    }
+                }
+            }
+        }
+        
+        window.addEventListener("message", onRender);
+        
+        window.parent.postMessage({
+            isStreamlitMessage: true,
+            type: "streamlit:componentReady",
+            apiVersion: 1
+        }, "*");
+    </script>
+</body>
+</html>"""
 
-    def run_server():
-        try:
-            with socketserver.TCPServer(("", 8506), RequestHandler) as httpd:
-                httpd.serve_forever()
-        except OSError:
-            pass
+with open(os.path.join(COMPONENT_DIR, "index.html"), "w", encoding="utf-8") as f:
+    f.write(vapi_html)
 
-    thread = threading.Thread(target=run_server, daemon=True)
-    thread.start()
-    return True
+# Declare the custom native Streamlit component from the dynamically created file
+vapi_interview = components.declare_component(
+    "vapi_interview",
+    path=COMPONENT_DIR
+)
 
-start_local_server()
 
 @st.cache_resource
 def init_connection():
@@ -272,30 +257,33 @@ if page == "🎙️ Interview Portal":
                 st.warning("Please enter your name first!")
 
     if st.session_state.interview_started:
-        # Center the iframe using columns for a cleaner, focused look
+        # Center the component using columns for a cleaner, focused look
         col_left, col_center, col_right = st.columns([1, 8, 1])
         
-        from urllib.parse import quote
-        safe_name = quote(st.session_state.candidate_name)
-        
         with col_center:
-            iframe_html = f"""
-            <iframe 
-                src="http://localhost:8506/interview?name={safe_name}" 
-                width="100%" 
-                height="450" 
-                allow="microphone; autoplay; clipboard-read; clipboard-write" 
-                frameborder="0"
-                style="border: 1px solid #e2e8f0; border-radius: 20px; background: #ffffff; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);">
-            </iframe>
-            """
-            st.markdown(iframe_html, unsafe_allow_html=True)
-            
-            # Allow user to restart with a new name
-            if st.button("Start a New Interview", type="secondary", use_container_width=True):
-                st.session_state.interview_started = False
-                st.session_state.candidate_name = ""
-                st.rerun()
+            if st.session_state.get("interview_finished"):
+                st.success("✅ Interview Completed & Saved to Database!")
+                if st.button("Start Another Interview", type="primary", use_container_width=True):
+                    st.session_state.interview_started = False
+                    st.session_state.interview_finished = False
+                    st.session_state.candidate_name = ""
+                    st.rerun()
+            else:
+                # Mount the Vapi Component
+                result = vapi_interview(name=st.session_state.candidate_name, key="vapi_widget")
+                
+                # result will be populated when the JS component calls sendMessageToStreamlit
+                if result is not None:
+                    if collection is not None:
+                        collection.insert_one(result)
+                    st.session_state.interview_finished = True
+                    st.rerun()
+                    
+                # Allow user to restart manually if they haven't finished
+                if st.button("Cancel & Start a New Interview", type="secondary", use_container_width=True):
+                    st.session_state.interview_started = False
+                    st.session_state.candidate_name = ""
+                    st.rerun()
 
 elif page == "📊 Admin Dashboard":
     st.markdown('<div class="main-header">📊 Live Candidate Database</div>', unsafe_allow_html=True)
