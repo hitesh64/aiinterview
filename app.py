@@ -84,8 +84,9 @@ import streamlit.components.v1 as components
 import os
 
 # --- Dynamically Create Custom Component ---
-# The user wants NO external HTML files. This generates it at runtime.
-COMPONENT_DIR = os.path.join(os.path.dirname(__file__), "vapi_component_auto")
+# The user wants NO external HTML files visible. This generates it in the system's TEMP folder.
+import tempfile
+COMPONENT_DIR = os.path.join(tempfile.gettempdir(), "vapi_component_auto")
 os.makedirs(COMPONENT_DIR, exist_ok=True)
 
 vapi_html = """<!DOCTYPE html>
