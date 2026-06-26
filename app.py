@@ -85,7 +85,7 @@ import os
 
 # --- Dynamically Create Custom Component (Single File Approach) ---
 # This automatically generates the required HTML file at runtime so you don't need a separate index.html file!
-COMPONENT_DIR = os.path.join(os.path.dirname(__file__), ".vapi_component")
+COMPONENT_DIR = os.path.join(os.path.dirname(__file__), "vapi_component_auto")
 os.makedirs(COMPONENT_DIR, exist_ok=True)
 
 vapi_html = """<!DOCTYPE html>
