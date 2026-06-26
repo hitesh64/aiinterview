@@ -83,119 +83,8 @@ st.markdown("""
 import streamlit.components.v1 as components
 import os
 
-# --- Dynamically Create Custom Component (Single File Approach) ---
-# This automatically generates the required HTML file at runtime so you don't need a separate index.html file!
+# Declare the custom native Streamlit component
 COMPONENT_DIR = os.path.join(os.path.dirname(__file__), "vapi_component_auto")
-os.makedirs(COMPONENT_DIR, exist_ok=True)
-
-vapi_html = """<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <script src="https://cdn.jsdelivr.net/gh/VapiAI/html-script-tag@latest/dist/assets/index.js"></script>
-    <style>
-        body { font-family: 'Inter', sans-serif; background-color: #ffffff; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; overflow: hidden; }
-        .container { text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; }
-        
-        /* Premium Pulsing Animation */
-        .pulse-ring {
-            width: 70px; height: 70px; background: #3b82f6; border-radius: 50%;
-            display: flex; align-items: center; justify-content: center;
-            box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.5);
-            animation: pulse 2.5s infinite;
-            margin-bottom: 25px;
-            color: white; font-size: 24px; font-weight: bold; font-family: 'Inter', sans-serif;
-        }
-        @keyframes pulse {
-            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); }
-            70% { transform: scale(1); box-shadow: 0 0 0 20px rgba(59, 130, 246, 0); }
-            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
-        }
-        
-        h2 { color: #0f172a; margin-bottom: 10px; font-size: 1.6rem; font-weight: 800; letter-spacing: -0.5px; }
-        p { color: #64748b; font-size: 1.05rem; max-width: 320px; line-height: 1.6; font-weight: 500; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="pulse-ring">AI</div>
-        <h2>Your AI Interviewer is Ready</h2>
-        <p id="welcome-text">Welcome! I am ready to begin our conversation. Please ensure you are in a quiet environment, then click the phone icon in the bottom right corner to start.</p>
-    </div>
-    
-    <script>
-        function sendMessageToStreamlit(data) {
-            window.parent.postMessage({
-                isStreamlitMessage: true,
-                type: "streamlit:setComponentValue",
-                value: data
-            }, "*");
-        }
-
-        function onRender(event) {
-            const data = event.data;
-            if (data.type === "streamlit:render") {
-                const candidateName = data.args.name || "Candidate";
-                document.getElementById('welcome-text').innerText = `Welcome, ${candidateName}! I am ready to begin our conversation. Please ensure you are in a quiet environment, then click the phone icon in the bottom right corner to start.`;
-
-                window.parent.postMessage({
-                    isStreamlitMessage: true,
-                    type: "streamlit:setFrameHeight",
-                    height: 450
-                }, "*");
-                
-                if (!window.vapiInitialized) {
-                    window.vapiInitialized = true;
-                    if (window.vapiSDK) {
-                        const vapiInstance = window.vapiSDK.run({
-                            apiKey: "635c8d91-9f2d-4de6-bb4f-67c1f493fa0d",
-                            assistant: "793df902-6bd1-4f7f-b4a8-f9737b211180",
-                            config: {}
-                        });
-
-                        let liveTranscript = "";
-
-                        vapiInstance.on('message', (message) => {
-                            if (message.type === 'transcript' && message.transcriptType === 'final') {
-                                let speaker = message.role === 'user' ? candidateName : 'AI';
-                                liveTranscript += speaker + ": " + message.transcript + "\\n";
-                            }
-                        });
-
-                        vapiInstance.on('call-end', () => {
-                            let finalStatus = liveTranscript.trim() === "" ? "Call Cut (No Audio)" : "Completed Interview";
-                            
-                            sendMessageToStreamlit({
-                                name: candidateName,
-                                status: finalStatus,
-                                transcript: liveTranscript || "Candidate hung up before speaking.",
-                                summary: "Check Vapi Dashboard for AI Summary.",
-                                is_name_verified: true,
-                                timestamp: new Date().toLocaleString()
-                            });
-                            
-                            liveTranscript = ""; 
-                        });
-                    }
-                }
-            }
-        }
-        
-        window.addEventListener("message", onRender);
-        
-        window.parent.postMessage({
-            isStreamlitMessage: true,
-            type: "streamlit:componentReady",
-            apiVersion: 1
-        }, "*");
-    </script>
-</body>
-</html>"""
-
-with open(os.path.join(COMPONENT_DIR, "index.html"), "w", encoding="utf-8") as f:
-    f.write(vapi_html)
-
-# Declare the custom native Streamlit component from the dynamically created file
 vapi_interview = components.declare_component(
     "vapi_interview",
     path=COMPONENT_DIR
@@ -315,7 +204,10 @@ elif page == "📊 Admin Dashboard":
             if 'candidate_number' in df.columns:
                 df = df.drop(columns=['candidate_number'])
                 
-            st.dataframe(df, use_container_width=True, hide_index=True)
+            # Changed st.dataframe to st.table to prevent Javascript chunk loading 404 errors on Render
+            if '_id' in df.columns:
+                df = df.set_index('_id')
+            st.table(df)
         else:
             st.success("✨ Database is clean and ready. Awaiting your first test call.")
 
